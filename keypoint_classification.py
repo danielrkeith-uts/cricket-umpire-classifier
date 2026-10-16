@@ -1,15 +1,16 @@
 import json
+import numpy as np
 
 def standardise_coco_data(coco_data):
-    keypoint_labels = sorted(
+    keypoint_labels = sorted({
         label
         for category in coco_data["categories"]
         for label in category.get("keypoints", [])
-    )
+    })
 
-    keypoint_label_to_feature_index = {
-        label: feature_index
-        for feature_index, label in enumerate(keypoint_labels)
+    keypoint_label_to_index = {
+        label: index
+        for index, label in enumerate(keypoint_labels)
     }
 
     id_to_category = {
@@ -26,10 +27,29 @@ def standardise_coco_data(coco_data):
     y = []
 
     for annotation in coco_data["annotations"]:
-        category = id_to_category[annotation["category_id"]]
-        category_keypoints = category.get("keypoints", [])
+        # An x- and y-feature for each keypoint
+        features = np.zeros(len(keypoint_labels) * 2, dtype=np.float32)
 
-        pass
+        category = id_to_category[annotation["category_id"]]
+        category_keypoint_labels = category.get("keypoints", [])
+
+        raw_provided_keypoints = np.asarray(
+            annotation.get("keypoints", []),
+            dtype=np.float32
+        )
+
+        # The raw provided keypoints include the x-value, y-value, and another unknown value.
+        # This last value will be discarded; i.e., every third element will be filtered out.
+
+        provided_keypoints_mask = (np.arange(len(raw_provided_keypoints)) + 1) % 3 != 0
+        provided_keypoints = raw_provided_keypoints[provided_keypoints_mask]
+
+        if len(provided_keypoints) != len(category_keypoint_labels) * 2:
+            raise ValueError(
+                f"Annotation {annotation['id']}: "
+                f"expected {len(category_keypoint_labels) * 2} keypoints, "
+                f"got {len(provided_keypoints)} keypoints"
+            )
 
     return x, y
 
