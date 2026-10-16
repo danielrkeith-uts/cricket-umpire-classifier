@@ -1,8 +1,14 @@
-import umpire_detection, keypoint_detection, keypoint_classification, object_detection, signal_analysis_over_time
+import primary_dataset
+
+from keypoint_classification import KeypointClassifier
+
 
 def main():
-    keypoint_classifier = keypoint_classification.KeypointClassifier()
-    keypoint_classifier.load_training_data_from_coco()
+    keypoint_classifier = KeypointClassifier(
+        primary_dataset.load_train_annotations(),
+        primary_dataset.load_test_annotations(),
+        primary_dataset.load_validate_annotations(),
+    )
     pass
 
 

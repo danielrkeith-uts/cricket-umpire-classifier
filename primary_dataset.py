@@ -1,22 +1,27 @@
+import json
+
 import numpy as np
 
-_TRAIN_PATH = "datasets/primary/train/_annotations.coco.json"
-_TEST_PATH = "datasets/primary/test/_annotations.coco.json"
-_VALIDATE_PATH = "datasets/primary/validate/_annotations.coco.json"
+_TRAIN_PATH = "datasets/primary/train"
+_TEST_PATH = "datasets/primary/test"
+_VALIDATE_PATH = "datasets/primary/valid"
 _ANNOTATIONS_FILE = "_annotations.coco.json"
 
-def _reshape_coco_data(coco_data):
+
+def _reshape_coco_annotations(coco_annotations):
     """
     Takes coco dataset and returns it in the form (X, Y) where:
 
     X = [flattened array of every keypoint [x1, y1, x2, y2, x3, y3], each normalised to range [0,1]]
 
     Y = [class label]
+
+    Note that the dataset does not include every keypoint on every image, so there are many missing values.
     """
 
     keypoint_labels = sorted({
         label
-        for category in coco_data["categories"]
+        for category in coco_annotations["categories"]
         for label in category.get("keypoints", [])
     })
 
@@ -27,18 +32,18 @@ def _reshape_coco_data(coco_data):
 
     id_to_category = {
         category["id"]: category
-        for category in coco_data["categories"]
+        for category in coco_annotations["categories"]
     }
 
     id_to_image = {
         image["id"]: image
-        for image in coco_data["images"]
+        for image in coco_annotations["images"]
     }
 
     x = []
     y = []
 
-    for annotation in coco_data["annotations"]:
+    for annotation in coco_annotations["annotations"]:
         # An x- and y-feature for each keypoint.
         # Every keypoint not specified will remain zero.
         features = np.full(len(keypoint_labels) * 2, np.nan, dtype=np.float32)
@@ -81,3 +86,24 @@ def _reshape_coco_data(coco_data):
         y.append(category["name"])
 
     return x, y
+
+
+def _load_json(json_path):
+    with open(json_path, "r") as f:
+        return json.load(f)
+
+
+def _load_and_reshape_annotations(path):
+    return _reshape_coco_annotations(_load_json(path))
+
+
+def load_train_annotations():
+    return _load_and_reshape_annotations(f"{_TRAIN_PATH}/{_ANNOTATIONS_FILE}")
+
+
+def load_test_annotations():
+    return _load_and_reshape_annotations(f"{_TEST_PATH}/{_ANNOTATIONS_FILE}")
+
+
+def load_validate_annotations():
+    return _load_and_reshape_annotations(f"{_VALIDATE_PATH}/{_ANNOTATIONS_FILE}")
