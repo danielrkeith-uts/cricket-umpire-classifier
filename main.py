@@ -2,7 +2,7 @@ import umpire_detection, keypoint_detection, keypoint_classification, object_det
 
 def main():
     keypoint_classifier = keypoint_classification.KeypointClassifier()
-    keypoint_classifier.load_training_data_from_coco("datasets/primary/train/_annotations.coco.json")
+    keypoint_classifier.load_training_data_from_coco()
     pass
 
 
