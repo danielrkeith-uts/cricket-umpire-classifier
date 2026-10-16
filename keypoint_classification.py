@@ -1,6 +1,7 @@
 import json
 import numpy as np
 
+
 def standardise_coco_data(coco_data):
     keypoint_labels = sorted({
         label
@@ -27,8 +28,9 @@ def standardise_coco_data(coco_data):
     y = []
 
     for annotation in coco_data["annotations"]:
-        # An x- and y-feature for each keypoint
-        features = np.zeros(len(keypoint_labels) * 2, dtype=np.float32)
+        # An x- and y-feature for each keypoint.
+        # Every keypoint not specified will remain zero.
+        features = np.full(len(keypoint_labels) * 2, np.nan, dtype=np.float32)
 
         category = id_to_category[annotation["category_id"]]
         category_keypoint_labels = category.get("keypoints", [])
@@ -40,7 +42,6 @@ def standardise_coco_data(coco_data):
 
         # The raw provided keypoints include the x-value, y-value, and another unknown value.
         # This last value will be discarded; i.e., every third element will be filtered out.
-
         provided_keypoints_mask = (np.arange(len(raw_provided_keypoints)) + 1) % 3 != 0
         provided_keypoints = raw_provided_keypoints[provided_keypoints_mask]
 
@@ -51,7 +52,20 @@ def standardise_coco_data(coco_data):
                 f"got {len(provided_keypoints)} keypoints"
             )
 
+        # Reshape so that each keypoint contains the x- and y- value.
+        provided_keypoints = provided_keypoints.reshape(-1, 2)
+
+        for label, (x_coord, y_coord) in zip(category_keypoint_labels, provided_keypoints):
+            feature_index = keypoint_label_to_index[label] * 2
+
+            features[feature_index] = x_coord
+            features[feature_index + 1] = y_coord
+
+        x.append(features)
+        y.append(category["name"])
+
     return x, y
+
 
 class KeypointClassifier:
     def __init__(self):
