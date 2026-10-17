@@ -45,8 +45,7 @@ def _reshape_coco_annotations(coco_annotations):
 
     for annotation in coco_annotations["annotations"]:
         # An x- and y-feature for each keypoint.
-        structured_type = [('x', 'float'), ('y', 'float')]
-        features = np.full(len(keypoint_labels), np.nan, dtype=structured_type)
+        features = np.full((len(keypoint_labels), 2), np.nan, dtype=np.float32)
 
         category = id_to_category[annotation["category_id"]]
         category_keypoint_labels = category.get("keypoints", [])
@@ -82,9 +81,13 @@ def _reshape_coco_annotations(coco_annotations):
             features[feature_index] = (x_coord / width, y_coord / height)
 
         x.append(features)
-        y.append(category["name"])
+        y.append(category["id"])
 
-    return x, y
+    return {
+        "X": np.array(x),
+        "Y": np.array(y),
+        "Classes": {cat_id: category["name"] for cat_id, category in id_to_category.items()}
+    }
 
 
 def _load_json(json_path):
