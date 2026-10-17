@@ -45,7 +45,8 @@ def _reshape_coco_annotations(coco_annotations):
 
     for annotation in coco_annotations["annotations"]:
         # An x- and y-feature for each keypoint.
-        features = np.full((len(keypoint_labels), 2), np.nan, dtype=np.float32)
+        # Leave unknown values as zero, since a (0, 0) coordinate will not appear in real data anyway.
+        features = np.zeros((len(keypoint_labels), 2), dtype=np.float32)
 
         category = id_to_category[annotation["category_id"]]
         category_keypoint_labels = category.get("keypoints", [])
