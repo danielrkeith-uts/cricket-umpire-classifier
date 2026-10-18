@@ -12,7 +12,7 @@ def _reshape_coco_annotations(coco_annotations):
     """
     Takes coco dataset and returns it in the form (X, Y) where:
 
-    X = [flattened array of every keypoint [x1, y1, x2, y2, x3, y3], each normalised to range [0,1]]
+    X = [array of every keypoint [(x1, y1), (x2, y2), (x3, y3)], each normalised to range [0,1]]
 
     Y = [class label]
 
@@ -45,8 +45,8 @@ def _reshape_coco_annotations(coco_annotations):
 
     for annotation in coco_annotations["annotations"]:
         # An x- and y-feature for each keypoint.
-        # Every keypoint not specified will remain zero.
-        features = np.full(len(keypoint_labels) * 2, np.nan, dtype=np.float32)
+        # Leave unknown values as zero, since a (0, 0) coordinate will not appear in real data anyway.
+        features = np.zeros((len(keypoint_labels), 2), dtype=np.float32)
 
         category = id_to_category[annotation["category_id"]]
         category_keypoint_labels = category.get("keypoints", [])
@@ -71,21 +71,24 @@ def _reshape_coco_annotations(coco_annotations):
         # Reshape so that each keypoint contains the x- and y- value.
         provided_keypoints = provided_keypoints.reshape(-1, 2)
 
-        # Get image width and hight for normalisation
+        # Get image width and height for normalisation
         image = id_to_image[annotation["image_id"]]
         width = image["width"]
         height = image["height"]
 
         for label, (x_coord, y_coord) in zip(category_keypoint_labels, provided_keypoints):
-            feature_index = keypoint_label_to_index[label] * 2
+            feature_index = keypoint_label_to_index[label]
 
-            features[feature_index] = x_coord / width
-            features[feature_index + 1] = y_coord / height
+            features[feature_index] = (x_coord / width, y_coord / height)
 
         x.append(features)
-        y.append(category["name"])
+        y.append(category["id"])
 
-    return x, y
+    return {
+        "X": np.array(x),
+        "Y": np.array(y),
+        "Classes": {cat_id: category["name"] for cat_id, category in id_to_category.items()}
+    }
 
 
 def _load_json(json_path):
