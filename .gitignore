@@ -309,3 +309,6 @@ __marimo__/
 
 # MacOS
 .DS_Store
+
+# Downloaded models
+models/

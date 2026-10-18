@@ -1,3 +1,4 @@
+import numpy as np
 from keras.src.callbacks import EarlyStopping
 from tensorflow.keras import models, layers
 
@@ -31,15 +32,34 @@ class KeypointClassifier:
 
         self.accuracy = None
 
-    def fit(self, train, validate):
+    def fit(self, train, validate, verbose="auto"):
         self.model.fit(
             train["X"],
             train["Y"],
             epochs=200,
             batch_size=64,
             callbacks=[_early_stopping],
-            validation_data=(validate["X"], validate["Y"])
+            validation_data=(validate["X"], validate["Y"]),
+            verbose=verbose
+        )
+
+    def fit_fixed_epochs(self, train, epochs, verbose="auto"):
+        """
+        Trains without early stopping, for when there is too little data to hold out a validation set.
+        """
+        self.model.fit(
+            train["X"],
+            train["Y"],
+            epochs=epochs,
+            batch_size=64,
+            verbose=verbose
         )
 
     def evaluate(self, test):
         return self.model.evaluate(test["X"], test["Y"])
+
+    def predict(self, x):
+        return np.argmax(self.predict_probabilities(x), axis=1)
+
+    def predict_probabilities(self, x):
+        return self.model.predict(x, verbose=0)
