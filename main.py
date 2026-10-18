@@ -1,13 +1,18 @@
 import keypoint_detection
 import primary_dataset
+import signal_analysis_over_time
 
 import keras
 import numpy as np
 
 from keypoint_classification import KeypointClassifier
+from signal_analysis_over_time import SignalSequenceClassifier
 
 _SEED = 0
 _VALIDATE_FRACTION = 0.15
+_WINDOW_LENGTH = 5
+_NUM_SEEDS = 3
+_FIXED_EPOCHS = 100
 
 
 def test_keypoint_classification_from_dataset():
@@ -108,6 +113,94 @@ def _evaluate_on_unseen_umpires(train_source, test_source, detected=None):
           f"macro F1 {_macro_f1(all_true, all_predicted, num_classes):.3f}")
 
 
+def test_signal_analysis_over_time_on_unseen_umpires():
+    """
+    Compares the LSTM with the single-frame keypoint classifier on the same windows of consecutive video frames,
+    using leave-one-umpire-out, repeated with several random seeds.
+
+    The single-frame classifier is scored on the last frame of each window (what it would see in real time), and on
+    its predictions averaged over the window. If the LSTM also beats the average, its gain comes from learning how the
+    signal moves rather than just from seeing more frames.
+    """
+    dataset = primary_dataset.load_all_annotations()
+    windows = signal_analysis_over_time.build_windows(dataset, _WINDOW_LENGTH)
+    print(f"\n{len(signal_analysis_over_time.build_clips(dataset))} clips, "
+          f"{len(windows['Y'])} windows of {_WINDOW_LENGTH} frames")
+
+    print("\nRunning BlazePose on every image...")
+    predicted_x, _ = keypoint_detection.detect_body_keypoints(dataset["Image"])
+
+    for name, x in [("Annotated keypoints", dataset["X"]), ("BlazePose keypoints", predicted_x)]:
+        print(f"\n\n--- {name.upper()}: LSTM VS SINGLE FRAME ---\n")
+        _compare_over_time_on_unseen_umpires(dict(dataset, X=x), windows)
+
+
+def _compare_over_time_on_unseen_umpires(frames, windows):
+    num_keypoints = frames["X"].shape[1]
+    num_classes = len(frames["Classes"])
+    four = primary_dataset.CLASSES.index("Four")
+    no_ball = primary_dataset.CLASSES.index("No-ball")
+
+    methods = ["Single frame", "Single frame, averaged", "LSTM"]
+    scores = {method: [] for method in methods}
+
+    for seed in range(_NUM_SEEDS):
+        all_true = []
+        all_predicted = {method: [] for method in methods}
+
+        for umpire in np.unique(windows["Umpire"]):
+            keras.utils.set_random_seed(seed)
+
+            is_test = windows["Umpire"] == umpire
+            train = _subset(windows, ~is_test)
+            test = _subset(windows, is_test)
+
+            # With so few clips, holding some out for early stopping can remove a whole class from training,
+            # so both models train for the same fixed number of epochs.
+            frame_classifier = KeypointClassifier(num_keypoints, num_classes)
+            frame_classifier.fit_fixed_epochs(_frames_in_windows(frames, train), _FIXED_EPOCHS, verbose=0)
+
+            sequence_classifier = SignalSequenceClassifier(_WINDOW_LENGTH, num_keypoints, num_classes)
+            sequence_classifier.fit(_window_keypoints(frames, train), _FIXED_EPOCHS, verbose=0)
+
+            test_x = frames["X"][test["Indices"]]
+            probabilities = frame_classifier.predict_probabilities(test_x.reshape(-1, num_keypoints, 2))
+            probabilities = probabilities.reshape(len(test_x), _WINDOW_LENGTH, num_classes)
+
+            all_predicted["Single frame"].append(np.argmax(probabilities[:, -1], axis=1))
+            all_predicted["Single frame, averaged"].append(np.argmax(probabilities.mean(axis=1), axis=1))
+            all_predicted["LSTM"].append(sequence_classifier.predict(test_x))
+            all_true.append(test["Y"])
+
+        all_true = np.concatenate(all_true)
+
+        for method in methods:
+            predicted = np.concatenate(all_predicted[method])
+            is_four = all_true == four
+
+            scores[method].append((
+                _macro_f1(all_true, predicted, num_classes),
+                np.mean(predicted == all_true),
+                np.mean(predicted[is_four] == no_ball),
+            ))
+
+    print(f"{'Method':>24}  {'Macro F1':>13}  {'Accuracy':>13}  {'Four as No-ball':>15}")
+    for method in methods:
+        means = np.mean(scores[method], axis=0)
+        sds = np.std(scores[method], axis=0)
+        print(f"{method:>24}  {means[0]:.3f} ± {sds[0]:.3f}  {means[1]:.3f} ± {sds[1]:.3f}  {means[2]:7.3f} ± {sds[2]:.3f}")
+
+
+def _frames_in_windows(frames, windows):
+    indices = np.unique(windows["Indices"])
+
+    return {"X": frames["X"][indices], "Y": frames["Y"][indices]}
+
+
+def _window_keypoints(frames, windows):
+    return {"X": frames["X"][windows["Indices"]], "Y": windows["Y"]}
+
+
 def _subset(dataset, mask):
     return {
         key: value if key == "Classes" else value[mask]
@@ -150,6 +243,7 @@ def _macro_f1(y_true, y_predicted, num_classes):
 
 def main():
     test_keypoint_classification_on_unseen_umpires()
+    test_signal_analysis_over_time_on_unseen_umpires()
 
 
 if __name__ == "__main__":
