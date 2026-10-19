@@ -242,8 +242,9 @@ def _macro_f1(y_true, y_predicted, num_classes):
 
 
 def main():
-    test_keypoint_classification_on_unseen_umpires()
-    test_signal_analysis_over_time_on_unseen_umpires()
+    test_keypoint_classification_from_dataset()
+    # test_keypoint_classification_on_unseen_umpires()
+    # test_signal_analysis_over_time_on_unseen_umpires()
 
 
 if __name__ == "__main__":
