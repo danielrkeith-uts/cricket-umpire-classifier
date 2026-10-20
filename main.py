@@ -8,6 +8,7 @@ import numpy as np
 
 from keypoint_classification import KeypointClassifier
 from signal_analysis_over_time import SignalSequenceClassifier
+from util import macro_f1
 
 _SEED = 0
 _VALIDATE_FRACTION = 0.15
@@ -45,14 +46,14 @@ def test_keypoint_classification_from_dataset():
 
     print("Evaluation on test data:")
     test_accuracy = np.mean(test["Y"] == test_predictions)
-    test_macro_f1 = _macro_f1(test["Y"], test_predictions, num_classes=len(test["Classes"]))
+    test_macro_f1 = macro_f1(test["Y"], test_predictions, num_classes=len(test["Classes"]))
 
     print(f"Accuracy: {test_accuracy}")
     print(f"Macro F1: {test_macro_f1}")
 
     print("\nEvaluation on entire dataset:")
     full_dataset_accuracy = np.mean(full_dataset["Y"] == full_dataset_predictions)
-    full_dataset_macro_f1 = _macro_f1(full_dataset["Y"], full_dataset_predictions, num_classes=len(test["Classes"]))
+    full_dataset_macro_f1 = macro_f1(full_dataset["Y"], full_dataset_predictions, num_classes=len(test["Classes"]))
 
     print(f"Accuracy: {full_dataset_accuracy}")
     print(f"Macro F1: {full_dataset_macro_f1}")
@@ -113,7 +114,7 @@ def _evaluate_on_unseen_umpires(train_source, test_source, detected=None):
 
         accuracy = np.mean(predicted == test["Y"])
         print(f"{umpire:>10}: {len(test['Y']):4} images, accuracy {accuracy:.3f}, "
-              f"macro F1 {_macro_f1(test['Y'], predicted, num_classes):.3f}")
+              f"macro F1 {macro_f1(test['Y'], predicted, num_classes):.3f}")
 
         all_true.append(test["Y"])
         all_predicted.append(predicted)
@@ -122,7 +123,7 @@ def _evaluate_on_unseen_umpires(train_source, test_source, detected=None):
     all_predicted = np.concatenate(all_predicted)
 
     print(f"{'All':>10}: {len(all_true):4} images, accuracy {np.mean(all_predicted == all_true):.3f}, "
-          f"macro F1 {_macro_f1(all_true, all_predicted, num_classes):.3f}")
+          f"macro F1 {macro_f1(all_true, all_predicted, num_classes):.3f}")
 
 
 def test_signal_analysis_over_time_on_unseen_umpires():
@@ -191,7 +192,7 @@ def _compare_over_time_on_unseen_umpires(frames, windows):
             is_four = all_true == four
 
             scores[method].append((
-                _macro_f1(all_true, predicted, num_classes),
+                macro_f1(all_true, predicted, num_classes),
                 np.mean(predicted == all_true),
                 np.mean(predicted[is_four] == no_ball),
             ))
@@ -200,7 +201,8 @@ def _compare_over_time_on_unseen_umpires(frames, windows):
     for method in methods:
         means = np.mean(scores[method], axis=0)
         sds = np.std(scores[method], axis=0)
-        print(f"{method:>24}  {means[0]:.3f} ± {sds[0]:.3f}  {means[1]:.3f} ± {sds[1]:.3f}  {means[2]:7.3f} ± {sds[2]:.3f}")
+        print(
+            f"{method:>24}  {means[0]:.3f} ± {sds[0]:.3f}  {means[1]:.3f} ± {sds[1]:.3f}  {means[2]:7.3f} ± {sds[2]:.3f}")
 
 
 def _frames_in_windows(frames, windows):
@@ -231,26 +233,6 @@ def _split_validate(dataset):
     is_validate = np.isin(dataset["Frame"], validate_frames)
 
     return _subset(dataset, ~is_validate), _subset(dataset, is_validate)
-
-
-def _macro_f1(y_true, y_predicted, num_classes):
-    """
-    Mean F1 score over the classes that appear in either y_true or y_predicted (not every umpire has every class).
-    Predictions of -1 (no detection) count as wrong but do not add a class.
-    """
-    f1_scores = []
-
-    for c in range(num_classes):
-        true_positives = np.sum((y_predicted == c) & (y_true == c))
-        predicted_positives = np.sum(y_predicted == c)
-        actual_positives = np.sum(y_true == c)
-
-        if predicted_positives == 0 and actual_positives == 0:
-            continue
-
-        f1_scores.append(2 * true_positives / (predicted_positives + actual_positives))
-
-    return np.mean(f1_scores)
 
 
 def main():
