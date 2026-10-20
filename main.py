@@ -1,6 +1,7 @@
 import keypoint_detection
 import primary_dataset
 import signal_analysis_over_time
+import object_detection
 
 import keras
 import numpy as np
@@ -244,6 +245,7 @@ def _macro_f1(y_true, y_predicted, num_classes):
 def main():
     test_keypoint_classification_on_unseen_umpires()
     test_signal_analysis_over_time_on_unseen_umpires()
+    object_detection.test_object_detection()
 
 
 if __name__ == "__main__":
