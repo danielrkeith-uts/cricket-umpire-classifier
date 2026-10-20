@@ -39,11 +39,22 @@ def test_keypoint_classification_from_dataset():
 
     print("\n\n--- EVALUATING ---\n\n")
 
+    test_predictions = keypoint_classifier.predict(test["X"])
+    full_dataset_predictions = keypoint_classifier.predict(full_dataset["X"])
+
     print("Evaluation on test data:")
-    keypoint_classifier.evaluate(test)
+    test_accuracy = np.mean(test["Y"] == test_predictions)
+    test_macro_f1 = _macro_f1(test["Y"], test_predictions, num_classes=len(test["Classes"]))
+
+    print(f"Accuracy: {test_accuracy}")
+    print(f"Macro F1: {test_macro_f1}")
 
     print("\nEvaluation on entire dataset:")
-    keypoint_classifier.evaluate(full_dataset)
+    full_dataset_accuracy = np.mean(full_dataset["Y"] == full_dataset_predictions)
+    full_dataset_macro_f1 = _macro_f1(full_dataset["Y"], full_dataset_predictions, num_classes=len(test["Classes"]))
+
+    print(f"Accuracy: {full_dataset_accuracy}")
+    print(f"Macro F1: {full_dataset_macro_f1}")
 
 
 def test_keypoint_classification_on_unseen_umpires():
