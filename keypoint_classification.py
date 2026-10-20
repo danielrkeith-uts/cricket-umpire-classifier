@@ -30,8 +30,6 @@ class KeypointClassifier:
             metrics=["accuracy"]
         )
 
-        self.accuracy = None
-
     def fit(self, train, validate, verbose="auto"):
         self.model.fit(
             train["X"],
