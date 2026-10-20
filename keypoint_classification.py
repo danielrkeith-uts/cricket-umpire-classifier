@@ -1,4 +1,7 @@
+import primary_dataset, util
+
 import numpy as np
+
 from keras.src.callbacks import EarlyStopping
 from tensorflow.keras import models, layers
 
@@ -61,3 +64,45 @@ class KeypointClassifier:
 
     def predict_probabilities(self, x):
         return self.model.predict(x, verbose=0)
+
+
+def test_keypoint_classification_from_dataset():
+    train = primary_dataset.load_train_annotations()
+    validate = primary_dataset.load_validate_annotations()
+    test = primary_dataset.load_test_annotations()
+    full_dataset = {
+        "X": np.concatenate((train["X"], validate["X"], test["X"])),
+        "Y": np.concatenate((train["Y"], validate["Y"], test["Y"])),
+        "Classes": train["Classes"],
+    }
+
+    keypoint_classifier = KeypointClassifier(
+        train["X"].shape[1],
+        len(train["Classes"])
+    )
+
+    print("\n\n--- TRAINING ---\n\n")
+
+    keypoint_classifier.fit(
+        train,
+        validate
+    )
+
+    print("\n\n--- EVALUATING ---\n\n")
+
+    test_predictions = keypoint_classifier.predict(test["X"])
+    full_dataset_predictions = keypoint_classifier.predict(full_dataset["X"])
+
+    print("Evaluation on test data:")
+    test_accuracy = np.mean(test["Y"] == test_predictions)
+    test_macro_f1 = util.macro_f1(test["Y"], test_predictions, num_classes=len(test["Classes"]))
+
+    print(f"Accuracy: {test_accuracy}")
+    print(f"Macro F1: {test_macro_f1}")
+
+    print("\nEvaluation on entire dataset:")
+    full_dataset_accuracy = np.mean(full_dataset["Y"] == full_dataset_predictions)
+    full_dataset_macro_f1 = util.macro_f1(full_dataset["Y"], full_dataset_predictions, num_classes=len(test["Classes"]))
+
+    print(f"Accuracy: {full_dataset_accuracy}")
+    print(f"Macro F1: {full_dataset_macro_f1}")
