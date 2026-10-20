@@ -116,10 +116,27 @@ def _prepare(dataset):
     return {"Images": images, "Boxes": boxes, "Y": dataset["Y"]}
 
 
+def _subset(dataset, mask):
+    return {key: value[mask] for key, value in dataset.items()}
+
+
+def _print_results(name, y_true, predicted, iou, milliseconds=None):
+    four = primary_dataset.CLASSES.index("Four")
+    no_ball = primary_dataset.CLASSES.index("No-ball")
+
+    print(f"\n\n--- OBJECT DETECTION: {name.upper()} ---\n")
+    print(f"Accuracy {np.mean(predicted == y_true):.3f}, macro F1 {_macro_f1(y_true, predicted):.3f}")
+    print(f"Mean IoU {np.mean(iou):.3f}, umpire located (IoU >= 0.5) in {np.mean(iou >= 0.5):.3f} of images")
+    print(f"Four classified as No-ball {np.mean(predicted[y_true == four] == no_ball):.3f}")
+    if milliseconds is not None:
+        print(f"{milliseconds:.1f} ms per image ({1000 / milliseconds:.1f} FPS)")
+
+
 def test_object_detection():
     """
-    Trains the object detector on the dataset's train split, using the validate split for early stopping,
-    and measures its performance on the test split.
+    1. Trains on the dataset's train split (validate split for early stopping) and tests on the test split.
+    2. Leave-one-umpire-out: for each umpire, trains on every other umpire and tests on that one, the same
+       procedure used for the keypoint classifier and the LSTM, so the results can be compared directly.
     """
     print("\nLoading images...")
     train = _prepare(primary_dataset.load_train_annotations())
@@ -129,16 +146,35 @@ def test_object_detection():
     detector = SignalObjectDetector(len(primary_dataset.CLASSES))
     detector.fit(train, validate, verbose=0)
 
+    # Run once before timing, so the one-off setup cost is not counted in the speed.
+    detector.predict(test["Images"][:1])
     start = time.perf_counter()
     predicted, boxes = detector.predict(test["Images"])
     milliseconds = (time.perf_counter() - start) * 1000 / len(test["Y"])
+    _print_results("Dataset test split", test["Y"], predicted, _box_iou(boxes, test["Boxes"]), milliseconds)
 
-    four = primary_dataset.CLASSES.index("Four")
-    no_ball = primary_dataset.CLASSES.index("No-ball")
-    iou = _box_iou(boxes, test["Boxes"])
+    # Leave-one-umpire-out. Both copies of each frame (with and without noise) stay on the same side of the
+    # train/validate split, so validation images are not near-duplicates of training images.
+    dataset = primary_dataset.load_all_annotations()
+    everything = dict(_prepare(dataset), Umpire=dataset["Umpire"], Frame=dataset["Frame"])
+    rng = np.random.default_rng(0)
+    all_true, all_predicted, all_iou = [], [], []
 
-    print("\n\n--- OBJECT DETECTION ---\n")
-    print(f"Accuracy {np.mean(predicted == test['Y']):.3f}, macro F1 {_macro_f1(test['Y'], predicted):.3f}")
-    print(f"Mean IoU {np.mean(iou):.3f}, umpire located (IoU >= 0.5) in {np.mean(iou >= 0.5):.3f} of images")
-    print(f"Four classified as No-ball {np.mean(predicted[test['Y'] == four] == no_ball):.3f}")
-    print(f"{milliseconds:.1f} ms per image ({1000 / milliseconds:.1f} FPS)")
+    for umpire in np.unique(everything["Umpire"]):
+        is_test = everything["Umpire"] == umpire
+        rest = _subset(everything, ~is_test)
+        frames = np.unique(rest["Frame"])
+        is_validate = np.isin(rest["Frame"], rng.choice(frames, size=round(len(frames) * 0.15), replace=False))
+
+        detector = SignalObjectDetector(len(primary_dataset.CLASSES))
+        detector.fit(_subset(rest, ~is_validate), _subset(rest, is_validate), verbose=0)
+
+        umpire_test = _subset(everything, is_test)
+        predicted, boxes = detector.predict(umpire_test["Images"])
+        print(f"{umpire:>10}: accuracy {np.mean(predicted == umpire_test['Y']):.3f}")
+        all_true.append(umpire_test["Y"])
+        all_predicted.append(predicted)
+        all_iou.append(_box_iou(boxes, umpire_test["Boxes"]))
+
+    _print_results("Unseen umpires", np.concatenate(all_true), np.concatenate(all_predicted),
+                   np.concatenate(all_iou))
