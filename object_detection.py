@@ -1,12 +1,11 @@
-import primary_dataset, util
-
 import time
 
 import numpy as np
 import tensorflow as tf
-
 from keras.src.callbacks import EarlyStopping
 from tensorflow.keras import layers, models
+
+import primary_dataset
 
 _IMAGE_SIZE = 224
 
@@ -47,6 +46,16 @@ def _box_iou(box_a, box_b):
     intersection = np.clip(right - left, 0, None) * np.clip(bottom - top, 0, None)
     union = box_a[:, 2] * box_a[:, 3] + box_b[:, 2] * box_b[:, 3] - intersection
     return intersection / np.maximum(union, 1e-9)
+
+
+def _macro_f1(y_true, y_predicted):
+    f1_scores = []
+    for c in range(len(primary_dataset.CLASSES)):
+        true_positives = np.sum((y_predicted == c) & (y_true == c))
+        total = np.sum(y_predicted == c) + np.sum(y_true == c)
+        if total > 0:
+            f1_scores.append(2 * true_positives / total)
+    return np.mean(f1_scores)
 
 
 class SignalObjectDetector:
@@ -116,8 +125,7 @@ def _print_results(name, y_true, predicted, iou, milliseconds=None):
     no_ball = primary_dataset.CLASSES.index("No-ball")
 
     print(f"\n\n--- OBJECT DETECTION: {name.upper()} ---\n")
-    print(
-        f"Accuracy {np.mean(predicted == y_true):.3f}, macro F1 {util.macro_f1(y_true, predicted, len(primary_dataset.CLASSES)):.3f}")
+    print(f"Accuracy {np.mean(predicted == y_true):.3f}, macro F1 {_macro_f1(y_true, predicted):.3f}")
     print(f"Mean IoU {np.mean(iou):.3f}, umpire located (IoU >= 0.5) in {np.mean(iou >= 0.5):.3f} of images")
     print(f"Four classified as No-ball {np.mean(predicted[y_true == four] == no_ball):.3f}")
     if milliseconds is not None:
