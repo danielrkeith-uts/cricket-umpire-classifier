@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 2
+names: ['person', 'umpire']
+
+roboflow:
+  workspace: utsma
+  project: umpire-wide-e2q2j
+  version: 3
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/utsma/umpire-wide-e2q2j/dataset/3

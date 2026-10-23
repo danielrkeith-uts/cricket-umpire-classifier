@@ -1,5 +1,5 @@
-# umpire-wide > 2025-11-04 3:40pm
-https://universe.roboflow.com/dil-project/umpire-wide
+# umpire-wide > test2
+https://universe.roboflow.com/utsma/umpire-wide-e2q2j
 
 Provided by a Roboflow user
 License: CC BY 4.0

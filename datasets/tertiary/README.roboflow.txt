@@ -1,8 +1,8 @@
 
-umpire-wide - v8 2025-11-04 3:40pm
+umpire-wide - v3 test2
 ==============================
 
-This dataset was exported via roboflow.com on May 12, 2026 at 1:26 AM GMT
+This dataset was exported via roboflow.com on October 20, 2026 at 10:15 PM GMT
 
 Roboflow is an end-to-end computer vision platform that helps you
 * collaborate with your team on computer vision projects
@@ -17,12 +17,12 @@ visit https://github.com/roboflow/notebooks
 
 To find over 100k other datasets and pre-trained models, visit https://universe.roboflow.com
 
-The dataset includes 2497 images.
-Umpire are annotated in COCO format.
+The dataset includes 2936 images.
+Umpire are annotated in YOLO26 format.
 
 The following pre-processing was applied to each image:
 * Auto-orientation of pixel data (with EXIF-orientation stripping)
-* Resize to 640x640 (Stretch)
+* Resize to 640x640 (Fill (with center crop))
 
 No image augmentation techniques were applied.
 
