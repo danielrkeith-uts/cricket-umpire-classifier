@@ -59,12 +59,13 @@ def umpire_detection(
     weights = f'datasets/tertiary/runs/2/weights/best.pt', 
     out = "../crops", 
     conf = 0.8, 
-    interval = 500
+    interval = 100
     ):
 
     for ts, conf, crop in _detect_and_crop(source, weights, conf, interval):
         path = f'{out}/{int(ts):08d}ms_{conf:.2f}.jpg'
         cv2.imwrite(path, crop)
+
         print(f'umpire at {ts/1000:.1f}s (conf {conf:.2f})')
 
 
@@ -74,7 +75,7 @@ if __name__ == "__main__":
     p.add_argument("--weights", default=f'datasets/tertiary/runs/2/weights/best.pt')
     p.add_argument("--out", default="../crops")
     p.add_argument("--conf", type=float, default=0.8)
-    p.add_argument("--interval", type=int, default=500, help="Milliseconds between frames")
+    p.add_argument("--interval", type=int, default=100, help="Milliseconds between frames")
     args = p.parse_args()
  
     out = Path(args.out)
